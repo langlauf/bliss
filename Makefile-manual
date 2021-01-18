@@ -1,0 +1,72 @@
+#
+# The "manual" GNU Makefile for bliss.
+#
+
+CFLAGS = -I.
+CFLAGS += -g
+#CFLAGS += -pg
+CFLAGS += -Wall
+#CFLAGS += -Wextra
+CFLAGS += --pedantic
+CFLAGS += -O3
+#CFLAGS += -DBLISS_DEBUG
+CFLAGS += -DNDEGUB
+CFLAGS += -fPIC
+CFLAGS += -std=c++11
+
+SRCS = defs.cc graph.cc partition.cc orbit.cc uintseqhash.cc heap.cc
+SRCS += utils.cc bliss_C.cc
+
+OBJS = $(addsuffix .o, $(basename $(SRCS)))
+
+GMPOBJS = $(addsuffix g,  $(OBJS))
+
+LIB =
+#LIB += /usr/lib/ccmalloc.o -ldl
+
+CC = g++
+RANLIB = ranlib
+AR = ar
+LIB_STATIC = libbliss.a
+LIB_SHARED = libbliss.so
+
+all:: lib_static lib_shared bliss
+
+gmp:	lib_static_gmp lib_shared_gmp bliss_gmp
+gmp:	LIB += -lgmp
+gmp:	CFLAGS += -DBLISS_USE_GMP
+
+
+
+%.o %.og:	%.cc
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+lib_static: $(OBJS)
+	rm -f $(LIB_STATIC)
+	$(AR) cr $(LIB_STATIC) $(OBJS)
+	$(RANLIB) $(LIB_STATIC)
+
+lib_shared: $(OBJS)
+	rm -f $(LIB_SHARED)
+	$(CC) -shared -o $(LIB_SHARED) $(OBJS)
+
+lib_static_gmp: $(GMPOBJS)
+	rm -f $(LIB_STATIC)
+	$(AR) cr $(LIB_STATIC) $(GMPOBJS)
+	$(RANLIB) $(LIB_STATIC)
+
+lib_shared_gmp: $(GMPOBJS)
+	rm -f $(LIB_SHARED)
+	$(CC) -shared -o $(LIB_SHARED) $(GMPOBJS)
+
+bliss: bliss.o $(OBJS)
+	$(CC) $(CFLAGS) -o bliss bliss.o $(OBJS) $(LIB)
+
+bliss_gmp: bliss.og $(GMPOBJS)
+	$(CC) $(CFLAGS) -o bliss bliss.og $(GMPOBJS) $(LIB)
+
+
+clean:
+	rm -f bliss $(LIB_STATIC) $(LIB_SHARED) $(OBJS) bliss.o $(GMPOBJS) bliss.og
+
+# DO NOT DELETE
