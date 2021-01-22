@@ -145,7 +145,13 @@ bliss_find_automorphisms(BlissGraph *graph,
   bliss::Stats s;
   assert(graph);
   assert(graph->g);
-  graph->g->find_automorphisms(s, hook, hook_user_param);
+  
+  auto report_aut = [&](unsigned int n, const unsigned int *aut) -> void {
+    if(hook)
+      (*hook)(hook_user_param, n, aut);
+  };
+  
+  graph->g->find_automorphisms(s, report_aut);
 
   if(stats)
     {
@@ -174,7 +180,12 @@ bliss_find_canonical_labeling(BlissGraph *graph,
   assert(graph);
   assert(graph->g);
   
-  canonical_labeling = graph->g->canonical_form(s, hook, hook_user_param);
+  auto report_aut = [&](unsigned int n, const unsigned int *aut) -> void {
+    if(hook)
+      (*hook)(hook_user_param, n, aut);
+  };
+  
+  canonical_labeling = graph->g->canonical_form(s, report_aut);
 
   if(stats)
     {

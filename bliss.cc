@@ -1,3 +1,4 @@
+#include <functional>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -150,21 +151,6 @@ parse_options(const int argc, const char** argv)
 
 
 
-/**
- * The hook function that prints the found automorphisms.
- * \a param must be a file descriptor (FILE *).
- */
-static void
-report_aut(void* param, const unsigned int n, const unsigned int* aut)
-{
-  assert(param);
-  fprintf((FILE*)param, "Generator: ");
-  bliss::print_permutation((FILE*)param, n, aut, 1);
-  fprintf((FILE*)param, "\n");
-}
-
-
-
 /* Output an error message and exit the whole program with the exit value 1. */
 static void
 _fatal(const char* fmt, ...)
@@ -271,15 +257,21 @@ main(const int argc, const char** argv)
   g->set_component_recursion(opt_use_component_recursion);
 
 
+  auto report_aut = [&](const unsigned int n, const unsigned int* aut) -> void {
+    fprintf(stdout, "Generator: ");
+    bliss::print_permutation(stdout, n, aut, 1);
+    fprintf(stdout, "\n");
+  };
+  
   if(opt_canonize == false)
     {
       /* No canonical labeling, only automorphism group */
-      g->find_automorphisms(stats, &report_aut, stdout);
+      g->find_automorphisms(stats, report_aut);
     }
   else
     {
       /* Canonical labeling and automorphism group */
-      const unsigned int* cl = g->canonical_form(stats, &report_aut, stdout);
+      const unsigned int* cl = g->canonical_form(stats, report_aut);
 
       fprintf(stdout, "Canonical labeling: ");
       bliss::print_permutation(stdout, g->get_nof_vertices(), cl, 1);

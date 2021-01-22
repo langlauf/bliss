@@ -68,6 +68,13 @@ public:
    * \brief Print the number in the file stream \a fp.
    */
   size_t print(FILE* const fp) const {return mpz_out_str(fp, 10, v); }
+
+  /**
+   * Get a copy of the internal GNU GMP integer.
+   * The caller is responsible for calling mpz_init before,
+   * and mpz_clear afterwards on the \a result variable.
+   */
+  void get(mpz_t& result) const {mpz_set(result, v); }
 };
 
 #else

@@ -1,0 +1,17 @@
+Version 0.75 (2021-01-22):
+- Automorphism reporting and termination check functions
+  are now of C++ type std::function.
+- Bignum allows one to get a copy of internal GNU GMP integer.
+
+Version 0.74 (2021-01-18)
+- Fixed a memory leak (thanks to Alexander Haupt and others for reporting this).
+- Possibility to terminate the search early (at the risk of incompleteness).
+- Minor changes for better C++11 compatibility.
+- Memory allocation failures now throw std::bad_alloc (except GNU GMP Bignum).
+- CMake (https://cmake.org/) support.
+
+Version 0.73 (2015-09-01)
+- Release under LGPL3.
+- Fix an uninitialized variable found by J. Azarija.
+- Fix a bug reported by T. Rehn.
+- Removed a too eager assertion.
