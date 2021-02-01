@@ -1,8 +1,5 @@
 #pragma once
 
-#include <cassert>
-#include <cstdarg>
-
 /*
   Copyright (c) 2003-2021 Tommi Junttila
   Released under the GNU Lesser General Public License version 3.
@@ -22,14 +19,21 @@
   along with bliss.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cassert>
+#include <cstdarg>
+
 /** \file
  * \brief Some common definitions.
  */
 
+#define BLISS_VERSION "0.76"
+#define BLISS_VERSION_MAJOR 0
+#define BLISS_VERSION_MINOR 76
+
 namespace bliss {
 
 /** \brief The version number of bliss. */
-static const char * const version = "0.75";
+static const char * const version = "0.76";
 
 /**
  * If a fatal internal error is encountered,

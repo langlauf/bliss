@@ -1,7 +1,3 @@
-#include <cassert>
-#include "defs.hh"
-#include "orbit.hh"
-
 /*
   Copyright (c) 2003-2021 Tommi Junttila
   Released under the GNU Lesser General Public License version 3.
@@ -20,6 +16,10 @@
   You should have received a copy of the GNU Lesser General Public License
   along with bliss.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#include <cassert>
+#include "defs.hh"
+#include "orbit.hh"
 
 namespace bliss {
 

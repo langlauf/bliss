@@ -20,7 +20,7 @@
 */
 
 #include <cstdio>
-#include "graph.hh"
+#include "abstractgraph.hh"
 #include "bignum.hh"
 
 namespace bliss {

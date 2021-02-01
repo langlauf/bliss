@@ -1,3 +1,9 @@
+Version 0.76 (2021-02-01):
+- The sources are now in a separate directory.
+- The monolithic "graph" file is split in "abstractgraph", "graph" and "digraph".
+- defs.hh now contains the version number as a #define.
+- is_automorphism is now a public member of Graph and Digraph.
+
 Version 0.75 (2021-01-22):
 - Automorphism reporting and termination check functions
   are now of C++ type std::function.

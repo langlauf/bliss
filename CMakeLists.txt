@@ -27,15 +27,37 @@ if(USE_GMP)
   endif()
 endif(USE_GMP)
 
+set(
+  BLISS_SOURCE_FILES
+  src/abstractgraph.cc
+  src/bliss_C.cc
+  src/defs.cc
+  src/digraph.cc
+  src/graph.cc
+  src/heap.cc
+  src/orbit.cc
+  src/partition.cc
+  src/uintseqhash.cc
+  src/utils.cc
+)
+
+# In MSVC, the executable and libraries should go to the top directory
+if(MSVC)
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR})
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR})
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR})
+endif(MSVC)
+
+
 # Add the shared library
-add_library(bliss SHARED defs.cc heap.cc graph.cc orbit.cc partition.cc uintseqhash.cc utils.cc)
+add_library(bliss SHARED ${BLISS_SOURCE_FILES})
 set_property(TARGET bliss PROPERTY POSITION_INDEPENDENT_CODE 1)
 
 # Add the static library
-add_library(bliss_static STATIC defs.cc heap.cc graph.cc orbit.cc partition.cc uintseqhash.cc utils.cc)
+add_library(bliss_static STATIC ${BLISS_SOURCE_FILES})
 
 # Add the executable
-add_executable(bliss-executable bliss.cc)
+add_executable(bliss-executable src/bliss.cc)
 target_link_libraries(bliss-executable bliss_static)
 if(USE_GMP)
   target_link_libraries(bliss-executable ${GMP_LIBRARIES})

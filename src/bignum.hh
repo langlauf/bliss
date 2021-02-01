@@ -57,12 +57,12 @@ public:
   /**
    * \brief Set the number to \a n.
    */
-  void assign(const int n) {mpz_set_si(v, n); }
+  void assign(int n) {mpz_set_si(v, n); }
 
   /**
    * \brief Multiply the number with \a n.
    */
-  void multiply(const int n) {mpz_mul_si(v, v, n); }
+  void multiply(int n) {mpz_mul_si(v, v, n); }
 
   /**
    * \brief Print the number in the file stream \a fp.
@@ -91,12 +91,12 @@ public:
   /**
    * \brief Set the number to \a n.
    */
-  void assign(const int n) {v = (long double)n; }
+  void assign(int n) {v = (long double)n; }
 
   /**
    * \brief Multiply the number with \a n.
    */
-  void multiply(const int n) {v *= (long double)n; }
+  void multiply(int n) {v *= (long double)n; }
 
   /**
    * \brief Print the number in the file stream \a fp.

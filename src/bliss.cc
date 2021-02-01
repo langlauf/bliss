@@ -1,13 +1,3 @@
-#include <functional>
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <cassert>
-#include "defs.hh"
-#include "graph.hh"
-#include "timer.hh"
-#include "utils.hh"
-
 /*
   Copyright (c) 2003-2021 Tommi Junttila
   Released under the GNU Lesser General Public License version 3.
@@ -26,6 +16,17 @@
   You should have received a copy of the GNU Lesser General Public License
   along with bliss.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#include <functional>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <cassert>
+#include "defs.hh"
+#include "timer.hh"
+#include "utils.hh"
+#include "graph.hh"
+#include "digraph.hh"
 
 /**
  * \page executable The bliss executable

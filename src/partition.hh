@@ -27,7 +27,7 @@ namespace bliss {
 #include <climits>
 #include "kstack.hh"
 #include "kqueue.hh"
-#include "graph.hh"
+#include "abstractgraph.hh"
 
 
 namespace bliss {
