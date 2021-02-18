@@ -32,7 +32,6 @@ namespace bliss {
 #include <functional>
 #include <vector>
 #include "stats.hh"
-#include "kstack.hh"
 #include "kqueue.hh"
 #include "heap.hh"
 #include "orbit.hh"
@@ -79,6 +78,11 @@ public:
   virtual void add_edge(const unsigned int source, const unsigned int target) = 0;
 
   /**
+   * Get the color of a vertex.
+   */
+  virtual unsigned int get_color(const unsigned int vertex) const = 0;
+
+  /**
    * Change the color of the vertex \a vertex to \a color.
    */
   virtual void change_color(const unsigned int vertex, const unsigned int color) = 0;
@@ -89,7 +93,10 @@ public:
    * hook function.
    * \param active  if true, activate failure recording, deactivate otherwise
    */
-  void set_failure_recording(const bool active) {assert(!in_search); opt_use_failure_recording = active;}
+  void set_failure_recording(const bool active) {
+    assert(not in_search);
+    opt_use_failure_recording = active;
+  }
 
   /** Activate/deactivate component recursion.
    * The choice affects the computed canonical labelings;
@@ -100,7 +107,10 @@ public:
    * hook function.
    * \param active  if true, activate component recursion, deactivate otherwise
    */
-  void set_component_recursion(const bool active) {assert(!in_search); opt_use_comprec = active;}
+  void set_component_recursion(const bool active) {
+    assert(not in_search);
+    opt_use_comprec = active;
+  }
 
 
 
@@ -129,8 +139,14 @@ public:
    * Check whether \a perm is an automorphism of this graph.
    * Unoptimized, mainly for debugging purposes.
    */
+  virtual bool is_automorphism(unsigned int* const perm) const = 0;
+
+  /**
+   * Check whether \a perm is an automorphism of this graph.
+   * Unoptimized, mainly for debugging purposes.
+   */
   virtual bool is_automorphism(const std::vector<unsigned int>& perm) const = 0;
-  
+
   /**
    * Find a set of generators for the automorphism group of the graph.
    * The function \a report (if non-null) is called each time a new generator
@@ -229,7 +245,7 @@ public:
    * \param active  if true, activate "long prune", deactivate otherwise
    */
   void set_long_prune_activity(const bool active) {
-    assert(!in_search);
+    assert(not in_search);
     opt_use_long_prune = active;
   }
 
@@ -239,10 +255,10 @@ protected:
   /** \internal
    * How much verbose output is produced (0 means none) */
   unsigned int verbose_level;
+
   /** \internal
    * The output stream for verbose output. */
   FILE *verbstr;
-protected:
 
   /** \internal
    * The ordered partition used in the search algorithm. */
@@ -258,6 +274,7 @@ protected:
    * Is failure recording in use?
    */
   bool opt_use_failure_recording;
+
   /* The "tree-specific" invariant value for the point when current path
    * got different from the first path */
   unsigned int failure_recording_fp_deviation;
@@ -338,7 +355,7 @@ protected:
    * Data structures and routines for refining the partition p into equitable
    */
   Heap neighbour_heap;
-  virtual bool split_neighbourhood_of_unit_cell(Partition::Cell *) = 0;
+  virtual bool split_neighbourhood_of_unit_cell(Partition::Cell * const) = 0;
   virtual bool split_neighbourhood_of_cell(Partition::Cell * const) = 0;
   void refine_to_equitable();
   void refine_to_equitable(Partition::Cell * const unit_cell);
@@ -384,15 +401,19 @@ protected:
 
   void reset_permutation(unsigned int *perm);
 
-  /* Mainly for debugging purposes */
-  virtual bool is_automorphism(unsigned int* const perm) const = 0;
-
   std::vector<unsigned int> certificate_current_path;
   std::vector<unsigned int> certificate_first_path;
   std::vector<unsigned int> certificate_best_path;
 
   unsigned int certificate_index;
   virtual void initialize_certificate() = 0;
+
+  /* Remove duplicates from seq.
+   * If m is the largest element in seq, them m < tmp.size() must hold.
+   * All entries in tmp must be false when called.
+   * Under that condition, all entries in tmp are false on exit as well.
+   */
+  static void remove_duplicates(std::vector<unsigned int>& seq, std::vector<bool>& tmp);
 
   virtual void remove_duplicate_edges() = 0;
   virtual void make_initial_equitable_partition() = 0;

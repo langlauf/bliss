@@ -28,29 +28,31 @@ namespace bliss {
 Partition::Partition()
 {
   N = 0;
-  elements = 0;
-  in_pos = 0;
-  invariant_values = 0;
-  cells = 0;
-  free_cells = 0;
-  element_to_cell_map = 0;
-  graph = 0;
+  elements = nullptr;
+  in_pos = nullptr;
+  invariant_values = nullptr;
+  cells = nullptr;
+  free_cells = nullptr;
+  element_to_cell_map = nullptr;
+  graph = nullptr;
   discrete_cell_count = 0;
   /* Initialize a distribution count sorting array. */
   for(unsigned int i = 0; i < 256; i++)
     dcs_count[i] = 0;
 
   cr_enabled = false;
-  cr_cells = 0;
-  cr_levels = 0;
+  cr_cells = nullptr;
+  cr_levels = nullptr;
 }
 
 
 
 Partition::~Partition()
 {
+  graph = nullptr;
   delete[] elements; elements = nullptr;
   delete[] cells; cells = nullptr;
+  free_cells = nullptr;
   delete[] element_to_cell_map; element_to_cell_map = nullptr;
   delete[] in_pos; in_pos = nullptr;
   delete[] invariant_values; invariant_values = nullptr;
@@ -129,8 +131,9 @@ void Partition::init(const unsigned int M)
     element_to_cell_map[i] = first_cell;
 
   splitting_queue.init(N);
-  refinement_stack.init(N);
 
+  refinement_stack.clear();
+  
   /* Reset the main backtracking stack */
   bt_stack.clear();
 }
@@ -164,12 +167,13 @@ Partition::goto_backtrack_point(BacktrackPoint p)
   if(cr_enabled)
     cr_goto_backtrack_point(info.cr_backtrack_point);
 
-  const unsigned int dest_refinement_stack_size = info.refinement_stack_size;
+  const size_t dest_refinement_stack_size = info.refinement_stack_size;
   
   assert(refinement_stack.size() >= dest_refinement_stack_size);
   while(refinement_stack.size() > dest_refinement_stack_size)
     {
-      RefInfo i = refinement_stack.pop();
+      RefInfo i = refinement_stack.back();
+      refinement_stack.pop_back();
       const unsigned int first = i.split_cell_first;
       Cell* cell = get_cell(elements[first]);
       
@@ -309,7 +313,7 @@ Partition::aux_split_in_two(Partition::Cell* const cell,
     i.next_nonsingleton_first = cell->next_nonsingleton->first;
   else
     i.next_nonsingleton_first = -1;
-  refinement_stack.push(i);
+  refinement_stack.push_back(i);
 
   /* Modify nonsingleton cell list */
   if(new_cell->length > 1)
@@ -417,8 +421,9 @@ Partition::splitting_queue_clear()
 
 
 /*
- * Assumes that the invariant values are NOT the same
- * and that the cell contains more than one element
+ * Assumes that
+ * - the invariant values are NOT the same, and
+ * - the cell contains more than one element.
  */
 Partition::Cell*
 Partition::sort_and_split_cell1(Partition::Cell* const cell)
@@ -512,7 +517,7 @@ Partition::sort_and_split_cell1(Partition::Cell* const cell)
   if(cr_enabled)
     cr_create_at_level_trailed(new_cell->first, cr_get_level(cell->first));
 
-#else
+#else // OLD SORT
   /* Sort vertices in the cell according to the invariant values */
   unsigned int *ep0 = elements + cell->first;
   unsigned int *ep1 = ep0 + cell->length;
@@ -599,7 +604,7 @@ Partition::sort_and_split_cell1(Partition::Cell* const cell)
 	cell->prev_nonsingleton = 0;
 	discrete_cell_count++;
       }
-    refinement_stack.push(i);
+    refinement_stack.push_back(i);
   }
 
 
@@ -721,7 +726,7 @@ Partition::sort_and_split_cell255(Partition::Cell* const cell,
   //assert(dcs_start[255] + dcs_count[255] == cell->length);
   assert(dcs_start[max_ival] + dcs_count[max_ival] == cell->length);
 
-  /* Do the sorting */
+  /* Do the sorting in-place */
   for(unsigned int i = 0; i <= max_ival; i++)
     {
       unsigned int *ep = elements + cell->first + dcs_start[i];
@@ -755,7 +760,6 @@ Partition::sort_and_split_cell255(Partition::Cell* const cell,
   assert(new_cell != cell);
   return new_cell;
 }
-
 
 
 /*
@@ -814,7 +818,6 @@ Partition::shellsort_cell(Partition::Cell* const cell)
 }
 
 
-
 void
 Partition::clear_ivs(Cell* const cell)
 {
@@ -834,7 +837,7 @@ Partition::split_cell(Partition::Cell* const original_cell)
   Cell* cell = original_cell;
   const bool original_cell_was_in_splitting_queue =
     original_cell->in_splitting_queue;
-  Cell* largest_new_cell = 0;
+  Cell* largest_new_cell = nullptr;
 
   while(true) 
     {
@@ -857,9 +860,7 @@ Partition::split_cell(Partition::Cell* const original_cell)
 	}
       if(ep == lp)
 	break;
-      
-      Cell* const new_cell = aux_split_in_two(cell,
-					      (ep - elements) - cell->first);
+      Cell* const new_cell = aux_split_in_two(cell, (ep - elements) - cell->first);
       
       if(graph and graph->compute_eqref_hash)
 	{
@@ -991,6 +992,8 @@ Partition::zplit_cell(Partition::Cell* const cell,
     }
   else
     {
+      //if(cell->max_ival >= 256)
+      //printf("%u/%u/%u ", cell->length,cell->max_ival,cell->max_ival_count);
       /* All invariant values are not the same */
       if(cell->max_ival == 1)
 	{
@@ -1005,8 +1008,7 @@ Partition::zplit_cell(Partition::Cell* const cell,
       else
 	{
 	  /* Generic sorting and splitting */
-	  const bool sorted = shellsort_cell(cell);
-	  assert(sorted);
+	  shellsort_cell(cell);
 	  last_new_cell = split_cell(cell);
 	}
     }
@@ -1073,9 +1075,8 @@ Partition::cr_split_level(const unsigned int level,
   cr_levels[++cr_max_level] = 0;
   cr_splitted_level_trail.push_back(level);
 
-  for(unsigned int i = 0; i < splitted_cells.size(); i++)
+  for(const unsigned int cell_index: splitted_cells)
     {
-      const unsigned int cell_index = splitted_cells[i];
       assert(cell_index < N);
       CRCell& cr_cell = cr_cells[cell_index];
       assert(cr_cell.level == level);

@@ -34,7 +34,6 @@
 
 namespace bliss {
 
-#define _INTERNAL_ERROR() fatal_error("%s:%d: internal error",__FILE__,__LINE__)
 
 /*-------------------------------------------------------------------------
  *
@@ -64,38 +63,7 @@ Graph::Vertex::add_edge(const unsigned int other_vertex)
 void
 Graph::Vertex::remove_duplicate_edges(std::vector<bool>& tmp)
 {
-#if defined(BLISS_CONSISTENCY_CHECKS)
-  /* Pre-conditions  */
-  for(unsigned int i = 0; i < tmp.size(); i++) assert(tmp[i] == false);
-#endif
-  for(std::vector<unsigned int>::iterator iter = edges.begin();
-      iter != edges.end(); )
-    {
-      const unsigned int dest_vertex = *iter;
-      if(tmp[dest_vertex] == true)
-	{
-	  /* A duplicate edge found! */
-	  iter = edges.erase(iter);
-	}
-      else
-	{
-	  /* Not seen earlier, mark as seen */
-	  tmp[dest_vertex] = true;
-	  iter++;
-	}
-    }
-
-  /* Clear tmp */
-  for(std::vector<unsigned int>::iterator iter = edges.begin();
-      iter != edges.end();
-      iter++)
-    {
-      tmp[*iter] = false;
-    }
-#if defined(BLISS_CONSISTENCY_CHECKS)
-  /* Post-conditions  */
-  for(unsigned int i = 0; i < tmp.size(); i++) assert(tmp[i] == false);
-#endif
+  remove_duplicates(edges, tmp);
 }
 
 
@@ -147,21 +115,43 @@ void
 Graph::add_edge(const unsigned int vertex1, const unsigned int vertex2)
 {
   //fprintf(stderr, "(%u,%u) ", vertex1, vertex2);
-  if(vertex1 >= vertices.size() or vertex2 >= vertices.size())
-    throw std::runtime_error("out of bounds vertex number");
+  if(vertex1 >= get_nof_vertices() or vertex2 >= get_nof_vertices())
+    throw std::out_of_range("out of bounds vertex number");
   vertices[vertex1].add_edge(vertex2);
   vertices[vertex2].add_edge(vertex1);
 }
 
 
+unsigned int
+Graph::get_color(const unsigned int vertex) const
+{
+  return vertices[vertex].color;
+}
+
 void
 Graph::change_color(const unsigned int vertex, const unsigned int color)
 {
+  if(vertex >= get_nof_vertices())
+    throw std::out_of_range("out of bounds vertex number");
   vertices[vertex].color = color;
 }
 
 
-
+Graph*
+Graph::copy() const {
+  const unsigned int n = get_nof_vertices();
+  Graph* result = new Graph(n);
+  // Color the vertices in the copy
+  for(unsigned int vi = 0; vi < n; vi++)
+    result->change_color(vi, get_color(vi));
+  // Add the edges in the copy
+  for(unsigned int vi = 0; vi < n; vi++) {
+    for(unsigned int neighbour: vertices[vi].edges)
+      if(neighbour >= vi)
+	result->add_edge(vi, neighbour);
+  }
+  return result;
+}
 
 
 /*-------------------------------------------------------------------------
@@ -341,28 +331,21 @@ Graph::write_dimacs(FILE* const fp)
 
   /* First count the total number of edges */
   unsigned int nof_edges = 0;
-  for(unsigned int i = 0; i < get_nof_vertices(); i++)
+  for(unsigned int vi = 0; vi < get_nof_vertices(); vi++)
     {
-      Vertex &v = vertices[i];
-      for(std::vector<unsigned int>::const_iterator ei = v.edges.begin();
-	  ei != v.edges.end();
-	  ei++)
-	{
-	  const unsigned int dest_i = *ei;
-	  if(dest_i < i)
-	    continue;
+      for(const unsigned int neighbour: vertices[vi].edges)
+	if(vi <= neighbour)
 	  nof_edges++;
-	}
     }
 
   /* Output the "header" line */
   fprintf(fp, "p edge %u %u\n", get_nof_vertices(), nof_edges);
 
   /* Print the color of each vertex */
-  for(unsigned int i = 0; i < get_nof_vertices(); i++)
+  for(unsigned int vi = 0; vi < get_nof_vertices(); vi++)
     {
-      Vertex &v = vertices[i];
-      fprintf(fp, "n %u %u\n", i+1, v.color);
+      Vertex &v = vertices[vi];
+      fprintf(fp, "n %u %u\n", vi+1, v.color);
       /*
       if(v.color != 0)
 	{
@@ -372,18 +355,11 @@ Graph::write_dimacs(FILE* const fp)
     }
 
   /* Print the edges */
-  for(unsigned int i = 0; i < get_nof_vertices(); i++)
+  for(unsigned int vi = 0; vi < get_nof_vertices(); vi++)
     {
-      Vertex &v = vertices[i];
-      for(std::vector<unsigned int>::const_iterator ei = v.edges.begin();
-	  ei != v.edges.end();
-	  ei++)
-	{
-	  const unsigned int dest_i = *ei;
-	  if(dest_i < i)
-	    continue;
-	  fprintf(fp, "e %u %u\n", i+1, dest_i+1);
-	}
+      for(const unsigned int neighbour: vertices[vi].edges)
+	if(vi <= neighbour)
+	  fprintf(fp, "e %u %u\n", vi+1, neighbour+1);
     }
 }
 
@@ -392,8 +368,8 @@ Graph::write_dimacs(FILE* const fp)
 void
 Graph::sort_edges()
 {
-  for(unsigned int i = 0; i < get_nof_vertices(); i++)
-    vertices[i].sort_edges();
+  for(Vertex& v: vertices)
+    v.sort_edges();
 }
 
 
@@ -453,7 +429,7 @@ Graph::permute(const std::vector<unsigned int>& perm) const
 #endif
 
   Graph* const g = new Graph(get_nof_vertices());
-  for(unsigned int i = 0; i < get_nof_vertices(); i++)
+  for(size_t i = 0; i < get_nof_vertices(); i++)
     {
       const Vertex& v = vertices[i];
       Vertex& permuted_v = g->vertices[perm[i]];
@@ -475,7 +451,7 @@ Graph::permute(const unsigned int* perm) const
 {
 #if defined(BLISS_CONSISTENCY_CHECKS)
   if(!is_permutation(get_nof_vertices(), perm))
-    _INTERNAL_ERROR();
+    throw std::logic_error(__FILE__ ":" __LINE__ ": a permutation was expected");
 #endif
 
   Graph* const g = new Graph(get_nof_vertices());
@@ -603,15 +579,13 @@ Graph::remove_duplicate_edges()
 {
   std::vector<bool> tmp(vertices.size(), false);
 
-  for(std::vector<Vertex>::iterator vi = vertices.begin();
-      vi != vertices.end();
-      vi++)
-    {
+  for(Vertex& v: vertices) {
 #if defined(BLISS_EXPENSIVE_CONSISTENCY_CHECKS)
-      for(unsigned int i = 0; i < tmp.size(); i++) assert(tmp[i] == false);
+    for(unsigned int i = 0; i < tmp.size(); i++)
+      assert(tmp[i] == false);
 #endif
-      (*vi).remove_duplicate_edges(tmp);
-    }
+    v.remove_duplicate_edges(tmp);
+  }
 }
 
 
@@ -739,14 +713,12 @@ Graph::split_neighbourhood_of_cell(Partition::Cell* const cell)
     {
       const Vertex& v = vertices[*ep++];
       
-      std::vector<unsigned int>::const_iterator ei = v.edges.begin();
-      for(unsigned int j = v.nof_edges(); j != 0; j--)
+      for(const unsigned int neighbour: v.edges)
 	{
-	  const unsigned int dest_vertex = *ei++;
-	  Partition::Cell * const neighbour_cell = p.get_cell(dest_vertex);
+	  Partition::Cell * const neighbour_cell = p.get_cell(neighbour);
 	  if(neighbour_cell->is_unit())
 	    continue;
-	  const unsigned int ival = ++p.invariant_values[dest_vertex];
+	  const unsigned int ival = ++p.invariant_values[neighbour];
 	  if(ival > neighbour_cell->max_ival)
 	    {
 	      neighbour_cell->max_ival = ival;
@@ -761,7 +733,7 @@ Graph::split_neighbourhood_of_cell(Partition::Cell* const cell)
 	}
     }
   
-  while(!neighbour_heap.is_empty())
+  while(not neighbour_heap.is_empty())
     {
       const unsigned int start = neighbour_heap.remove();
       Partition::Cell * const neighbour_cell = p.get_cell(p.elements[start]);
@@ -776,10 +748,11 @@ Graph::split_neighbourhood_of_cell(Partition::Cell* const cell)
 
 
       Partition::Cell* const last_new_cell = p.zplit_cell(neighbour_cell, true);
-
+      assert(neighbour_cell->nof_nonzeros == 0);
+      
       /* Update certificate and hash if needed */
       const Partition::Cell* c = neighbour_cell;
-      while(1)
+      while(true)
 	{
 	  if(in_search)
 	    {
@@ -861,11 +834,9 @@ Graph::split_neighbourhood_of_unit_cell(Partition::Cell* const unit_cell)
 
   const Vertex& v = vertices[p.elements[unit_cell->first]];
 
-  std::vector<unsigned int>::const_iterator ei = v.edges.begin();
-  for(unsigned int j = v.nof_edges(); j > 0; j--)
+  for(const unsigned int neighbour: v.edges)
     {
-      const unsigned int dest_vertex = *ei++;
-      Partition::Cell * const neighbour_cell = p.get_cell(dest_vertex);
+      Partition::Cell * const neighbour_cell = p.get_cell(neighbour);
       
       if(neighbour_cell->is_unit()) {
 	if(in_search) {
@@ -883,10 +854,10 @@ Graph::split_neighbourhood_of_unit_cell(Partition::Cell* const unit_cell)
       unsigned int * const swap_position =
 	p.elements + neighbour_cell->first + neighbour_cell->length -
 	neighbour_cell->max_ival_count;
-      *p.in_pos[dest_vertex] = *swap_position;
-      p.in_pos[*swap_position] = p.in_pos[dest_vertex];
-      *swap_position = dest_vertex;
-      p.in_pos[dest_vertex] = swap_position;
+      *p.in_pos[neighbour] = *swap_position;
+      p.in_pos[*swap_position] = p.in_pos[neighbour];
+      *swap_position = neighbour;
+      p.in_pos[neighbour] = swap_position;
     }
   
   while(!neighbour_heap.is_empty())
@@ -1143,7 +1114,7 @@ Graph::find_next_cell_to_be_splitted(Partition::Cell* cell)
   case shs_fsm: return sh_first_smallest_max_neighbours();
   case shs_flm: return sh_first_largest_max_neighbours();
   default:
-    fatal_error("Internal error - unknown splitting heuristics");
+    throw std::logic_error("unknown splitting heuristics");
     return 0;
   }
 }
@@ -1228,8 +1199,7 @@ Graph::sh_first_max_neighbours()
 {
   Partition::Cell* best_cell = 0;
   int best_value = -1;
-  KStack<Partition::Cell*> neighbour_cells_visited;
-  neighbour_cells_visited.init(get_nof_vertices());
+  _neighbour_cells.clear();
   for(Partition::Cell* cell = p.first_nonsingleton_cell;
       cell;
       cell = cell->next_nonsingleton)
@@ -1237,20 +1207,20 @@ Graph::sh_first_max_neighbours()
       if(opt_use_comprec and p.cr_get_level(cell->first) != cr_level)
 	continue;
       const Vertex& v = vertices[p.elements[cell->first]];
-      std::vector<unsigned int>::const_iterator ei = v.edges.begin();
-      for(unsigned int j = v.nof_edges(); j > 0; j--)
+      for(const unsigned int neighbour: v.edges)
 	{
-	  Partition::Cell * const neighbour_cell = p.get_cell(*ei++);
+	  Partition::Cell * const neighbour_cell = p.get_cell(neighbour);
 	  if(neighbour_cell->is_unit())
 	    continue;
 	  neighbour_cell->max_ival++;
 	  if(neighbour_cell->max_ival == 1)
-	    neighbour_cells_visited.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	}
       int value = 0;
-      while(!neighbour_cells_visited.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell* const neighbour_cell = neighbour_cells_visited.pop();
+	  Partition::Cell* const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  if(neighbour_cell->max_ival != neighbour_cell->length)
 	    value++;
 	  neighbour_cell->max_ival = 0;
@@ -1277,8 +1247,7 @@ Graph::sh_first_smallest_max_neighbours()
   Partition::Cell* best_cell = 0;
   int best_value = -1;
   unsigned int best_size = UINT_MAX;
-  KStack<Partition::Cell*> neighbour_cells_visited;
-  neighbour_cells_visited.init(get_nof_vertices());
+  _neighbour_cells.clear();
   for(Partition::Cell* cell = p.first_nonsingleton_cell;
       cell;
       cell = cell->next_nonsingleton)
@@ -1288,20 +1257,20 @@ Graph::sh_first_smallest_max_neighbours()
 	continue;
 	
       const Vertex& v = vertices[p.elements[cell->first]];
-      std::vector<unsigned int>::const_iterator ei = v.edges.begin();
-      for(unsigned int j = v.nof_edges(); j > 0; j--)
+      for(const unsigned int neighbour: v.edges)
 	{
-	  Partition::Cell* const neighbour_cell = p.get_cell(*ei++);
+	  Partition::Cell* const neighbour_cell = p.get_cell(neighbour);
 	  if(neighbour_cell->is_unit())
 	    continue;
 	  neighbour_cell->max_ival++;
 	  if(neighbour_cell->max_ival == 1)
-	    neighbour_cells_visited.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	}
       int value = 0;
-      while(!neighbour_cells_visited.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell* const neighbour_cell = neighbour_cells_visited.pop();
+	  Partition::Cell* const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  if(neighbour_cell->max_ival != neighbour_cell->length)
 	    value++;
 	  neighbour_cell->max_ival = 0;
@@ -1330,8 +1299,7 @@ Graph::sh_first_largest_max_neighbours()
   Partition::Cell* best_cell = 0;
   int best_value = -1;
   unsigned int best_size = 0;
-  KStack<Partition::Cell*> neighbour_cells_visited;
-  neighbour_cells_visited.init(get_nof_vertices());
+  _neighbour_cells.clear();
   for(Partition::Cell* cell = p.first_nonsingleton_cell;
       cell;
       cell = cell->next_nonsingleton)
@@ -1348,12 +1316,13 @@ Graph::sh_first_largest_max_neighbours()
 	    continue;
 	  neighbour_cell->max_ival++;
 	  if(neighbour_cell->max_ival == 1)
-	    neighbour_cells_visited.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	}
       int value = 0;
-      while(!neighbour_cells_visited.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell* const neighbour_cell = neighbour_cells_visited.pop();
+	  Partition::Cell* const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  if(neighbour_cell->max_ival != neighbour_cell->length)
 	    value++;
 	  neighbour_cell->max_ival = 0;
@@ -1422,7 +1391,7 @@ Graph::is_automorphism(unsigned int* const perm) const
 
 #if defined(BLISS_CONSISTENCY_CHECKS)
   if(!is_permutation(get_nof_vertices(), perm))
-    _INTERNAL_ERROR();
+    throw std::logic_error(__FILE__ ":" __LINE__ ": a permutation was expected");
 #endif
 
   for(unsigned int i = 0; i < get_nof_vertices(); i++)
@@ -1519,20 +1488,17 @@ Graph::nucr_find_first_component(const unsigned int level)
       Partition::Cell* const cell = component[i];
 	  
       const Vertex& v = vertices[p.elements[cell->first]];
-      std::vector<unsigned int>::const_iterator ei = v.edges.begin();
-      for(unsigned int j = v.nof_edges(); j > 0; j--)
+      for(unsigned int neighbour: v.edges)
 	{
-	  const unsigned int neighbour = *ei++;
-	  
 	  Partition::Cell* const neighbour_cell = p.get_cell(neighbour);
-
-	  /* Skip unit neighbours */
+	
+	  // Skip unit neighbours
 	  if(neighbour_cell->is_unit())
 	    continue;
-	  /* Already marked to be in the same component? */
+	  // Already marked to be in the same component?
 	  if(neighbour_cell->max_ival == 1)
 	    continue;
-	  /* Is the neighbour at the same component recursion level? */
+	  // Is the neighbour at the same component recursion level?
 	  if(p.cr_get_level(neighbour_cell->first) != level)
 	    continue;
 
@@ -1558,14 +1524,11 @@ Graph::nucr_find_first_component(const unsigned int level)
 	}
     }
 
-  for(unsigned int i = 0; i < component.size(); i++)
-    {
-      Partition::Cell* const cell = component[i];
-      cell->max_ival = 0;
-      cr_component.push_back(cell->first);
-      cr_component_elements += cell->length;
-    }
-
+  for(Partition::Cell* const cell: component) {
+    cell->max_ival = 0;
+    cr_component.push_back(cell->first);
+    cr_component_elements += cell->length;
+  }
   if(verbstr and verbose_level > 2) {
     fprintf(verbstr, "NU-component with %lu cells and %u vertices\n",
 	    (long unsigned)cr_component.size(), cr_component_elements);
@@ -1584,7 +1547,6 @@ Graph::nucr_find_first_component(const unsigned int level,
 				 unsigned int& component_elements,
 				 Partition::Cell*& sh_return)
 {
-
   component.clear();
   component_elements = 0;
   sh_return = 0;
@@ -1608,8 +1570,7 @@ Graph::nucr_find_first_component(const unsigned int level,
     }
 
   std::vector<Partition::Cell*> comp;
-  KStack<Partition::Cell*> neighbours;
-  neighbours.init(get_nof_vertices());
+  _neighbour_cells.clear();
 
   first_cell->max_ival = 1;
   comp.push_back(first_cell);
@@ -1619,28 +1580,25 @@ Graph::nucr_find_first_component(const unsigned int level,
       Partition::Cell* const cell = comp[i];
 
       const Vertex& v = vertices[p.elements[cell->first]];
-      std::vector<unsigned int>::const_iterator ei = v.edges.begin();
-      for(unsigned int j = v.nof_edges(); j > 0; j--)
+      for(unsigned int neighbour: v.edges)
 	{
-	  const unsigned int neighbour = *ei++;
-	  
 	  Partition::Cell* const neighbour_cell = p.get_cell(neighbour);
 
-	  /* Skip unit neighbours */
+	  // Skip unit neighbours
 	  if(neighbour_cell->is_unit())
 	    continue;
-	  /* Is the neighbour at the same component recursion level? */
+	  // Is the neighbour at the same component recursion level?
 	  //if(p.cr_get_level(neighbour_cell->first) != level)
 	  //  continue;
 	  if(neighbour_cell->max_ival_count == 0)
-	    neighbours.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	  neighbour_cell->max_ival_count++;
 	}
       unsigned int nuconn = 1;
-      while(!neighbours.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell* const neighbour_cell = neighbours.pop();
-	  //neighbours.pop_back();
+	  Partition::Cell* const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  
 	  /* Skip saturated neighbour cells */
 	  if(neighbour_cell->max_ival_count == neighbour_cell->length)
@@ -1716,7 +1674,7 @@ Graph::nucr_find_first_component(const unsigned int level,
 	}
 	break;
       default:
-	fatal_error("Internal error - unknown splitting heuristics");
+	throw std::logic_error("unknown splitting heuristics");
 	return 0;
       }
     }

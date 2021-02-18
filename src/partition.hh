@@ -25,7 +25,6 @@ namespace bliss {
 
 #include <vector>
 #include <climits>
-#include "kstack.hh"
 #include "kqueue.hh"
 #include "abstractgraph.hh"
 
@@ -90,7 +89,7 @@ private:
   /** \internal
    * A stack for remembering the splits, used for backtracking.
    */
-  KStack<RefInfo> refinement_stack;
+  std::vector<RefInfo> refinement_stack;
 
   class BacktrackInfo {
   public:
@@ -199,7 +198,7 @@ public:
    * The flag \a max_ival_info_ok indicates whether the max_ival and
    * max_ival_count fields of the Cell \a cell have consistent values
    * when the method is called.
-   * Clears the invariant values of elements in the Cell \a cell as well as
+   * Clears the invariant values of the elements in the Cell \a cell as well as
    * the max_ival and max_ival_count fields of the Cell \a cell.
    */
   Cell *zplit_cell(Cell * const cell, const bool max_ival_info_ok);
@@ -234,8 +233,8 @@ private:
 	next->prev_next_ptr = prev_next_ptr;
       *(prev_next_ptr) = next;
       level = UINT_MAX;
-      next = 0;
-      prev_next_ptr = 0;
+      next = nullptr;
+      prev_next_ptr = nullptr;
     }
   };
   CRCell* cr_cells;

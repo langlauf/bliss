@@ -23,16 +23,4 @@
 
 namespace bliss {
 
-void
-fatal_error(const char* fmt, ...)
-{
-  va_list ap;
-  va_start(ap, fmt);
-  fprintf(stderr,"Bliss fatal error: ");
-  vfprintf(stderr, fmt, ap);
-  fprintf(stderr, "\nAborting!\n");
-  va_end(ap);
-  exit(1);
-}
-
 }

@@ -34,7 +34,6 @@ set(
   src/defs.cc
   src/digraph.cc
   src/graph.cc
-  src/heap.cc
   src/orbit.cc
   src/partition.cc
   src/uintseqhash.cc

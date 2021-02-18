@@ -34,8 +34,6 @@
 
 namespace bliss {
 
-#define _INTERNAL_ERROR() fatal_error("%s:%d: internal error",__FILE__,__LINE__)
-
 
 /*-------------------------------------------------------------------------
  *
@@ -72,63 +70,8 @@ Digraph::Vertex::add_edge_from(const unsigned int other_vertex)
 void
 Digraph::Vertex::remove_duplicate_edges(std::vector<bool>& tmp)
 {
-#if defined(BLISS_CONSISTENCY_CHECKS)
-  /* Pre-conditions  */
-  for(unsigned int i = 0; i < tmp.size(); i++) assert(tmp[i] == false);
-#endif
-  for(std::vector<unsigned int>::iterator iter = edges_out.begin();
-      iter != edges_out.end(); )
-    {
-      const unsigned int dest_vertex = *iter;
-      if(tmp[dest_vertex] == true)
-	{
-	  /* A duplicate edge found! */
-	  iter = edges_out.erase(iter);
-	}
-      else
-	{
-	  /* Not seen earlier, mark as seen */
-	  tmp[dest_vertex] = true;
-	  iter++;
-	}
-    }
-
-  /* Clear tmp */
-  for(std::vector<unsigned int>::iterator iter = edges_out.begin();
-      iter != edges_out.end();
-      iter++)
-    {
-      tmp[*iter] = false;
-    }
-
-  for(std::vector<unsigned int>::iterator iter = edges_in.begin();
-      iter != edges_in.end(); )
-    {
-      const unsigned int dest_vertex = *iter;
-      if(tmp[dest_vertex] == true)
-	{
-	  /* A duplicate edge found! */
-	  iter = edges_in.erase(iter);
-	}
-      else
-	{
-	  /* Not seen earlier, mark as seen */
-	  tmp[dest_vertex] = true;
-	  iter++;
-	}
-    }
-
-  /* Clear tmp */
-  for(std::vector<unsigned int>::iterator iter = edges_in.begin();
-      iter != edges_in.end();
-      iter++)
-    {
-      tmp[*iter] = false;
-    }
-#if defined(BLISS_CONSISTENCY_CHECKS)
-  /* Post-conditions  */
-  for(unsigned int i = 0; i < tmp.size(); i++) assert(tmp[i] == false);
-#endif
+  remove_duplicates(edges_out, tmp);
+  remove_duplicates(edges_in, tmp);
 }
 
 
@@ -183,19 +126,41 @@ void
 Digraph::add_edge(const unsigned int vertex1, const unsigned int vertex2)
 {
   if(vertex1 >= vertices.size() or vertex2 >= vertices.size())
-    throw std::runtime_error("out of bounds vertex number");
-  //assert(vertex1 < get_nof_vertices());
-  //assert(vertex2 < get_nof_vertices());
+    throw std::out_of_range("out of bounds vertex number");
   vertices[vertex1].add_edge_to(vertex2);
   vertices[vertex2].add_edge_from(vertex1);
+}
+
+
+unsigned int
+Digraph::get_color(const unsigned int vertex) const
+{
+  return vertices[vertex].color;
 }
 
 
 void
 Digraph::change_color(const unsigned int vertex, const unsigned int new_color)
 {
-  assert(vertex < get_nof_vertices());
+  if(vertex >= get_nof_vertices())
+    throw std::out_of_range("out of bounds vertex number");
   vertices[vertex].color = new_color;
+}
+
+Digraph*
+Digraph::copy() const {
+  const unsigned int n = get_nof_vertices();
+  Digraph* result = new Digraph(n);
+  for(unsigned int vi = 0; vi < n; vi++)
+    result->change_color(vi, get_color(vi));
+  for(unsigned int vi = 0; vi < n; vi++) {
+    Vertex v = vertices[vi];
+    for(std::vector<unsigned int>::const_iterator ei = v.edges_out.cbegin();
+	ei != v.edges_out.cend();
+	ei++)
+      result->add_edge(vi, *ei);
+  }
+  return result;
 }
 
 
@@ -1404,7 +1369,7 @@ Digraph::find_next_cell_to_be_splitted(Partition::Cell* cell)
   case shs_fsm: return sh_first_smallest_max_neighbours();
   case shs_flm: return sh_first_largest_max_neighbours();
   default:
-    fatal_error("Internal error - unknown splitting heuristics");
+    throw std::logic_error("unknown splitting heuristics");
     return 0;
   }
 }
@@ -1492,8 +1457,7 @@ Digraph::sh_first_max_neighbours()
 {
   Partition::Cell* best_cell = 0;
   int best_value = -1;
-  KStack<Partition::Cell*> neighbour_cells_visited;
-  neighbour_cells_visited.init(get_nof_vertices());
+  _neighbour_cells.clear();
   for(Partition::Cell* cell = p.first_nonsingleton_cell;
       cell;
       cell = cell->next_nonsingleton)
@@ -1511,11 +1475,12 @@ Digraph::sh_first_max_neighbours()
 	    continue;
 	  neighbour_cell->max_ival++;
 	  if(neighbour_cell->max_ival == 1)
-	    neighbour_cells_visited.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	}
-      while(!neighbour_cells_visited.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell* const neighbour_cell = neighbour_cells_visited.pop();
+	  Partition::Cell* const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  if(neighbour_cell->max_ival != neighbour_cell->length)
 	    value++;
 	  neighbour_cell->max_ival = 0;
@@ -1529,11 +1494,12 @@ Digraph::sh_first_max_neighbours()
 	    continue;
 	  neighbour_cell->max_ival++;
 	  if(neighbour_cell->max_ival == 1)
-	    neighbour_cells_visited.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	}
-      while(!neighbour_cells_visited.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell* const neighbour_cell = neighbour_cells_visited.pop();
+	  Partition::Cell* const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  if(neighbour_cell->max_ival != neighbour_cell->length)
 	    value++;
 	  neighbour_cell->max_ival = 0;
@@ -1561,8 +1527,7 @@ Digraph::sh_first_smallest_max_neighbours()
   Partition::Cell* best_cell = 0;
   int best_value = -1;
   unsigned int best_size = UINT_MAX;
-  KStack<Partition::Cell*> neighbour_cells_visited;
-  neighbour_cells_visited.init(get_nof_vertices());
+  _neighbour_cells.clear();
   for(Partition::Cell* cell = p.first_nonsingleton_cell;
       cell;
       cell = cell->next_nonsingleton)
@@ -1583,11 +1548,12 @@ Digraph::sh_first_smallest_max_neighbours()
 	    continue;
 	  neighbour_cell->max_ival++;
 	  if(neighbour_cell->max_ival == 1)
-	    neighbour_cells_visited.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	}
-      while(!neighbour_cells_visited.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell * const neighbour_cell = neighbour_cells_visited.pop();
+	  Partition::Cell * const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  if(neighbour_cell->max_ival != neighbour_cell->length)
 	    value++;
 	  neighbour_cell->max_ival = 0;
@@ -1601,11 +1567,12 @@ Digraph::sh_first_smallest_max_neighbours()
 	    continue;
 	  neighbour_cell->max_ival++;
 	  if(neighbour_cell->max_ival == 1)
-	    neighbour_cells_visited.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	}
-      while(!neighbour_cells_visited.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell * const neighbour_cell = neighbour_cells_visited.pop();
+	  Partition::Cell * const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  if(neighbour_cell->max_ival != neighbour_cell->length)
 	    value++;
 	  neighbour_cell->max_ival = 0;
@@ -1635,8 +1602,7 @@ Digraph::sh_first_largest_max_neighbours()
   Partition::Cell* best_cell = 0;
   int best_value = -1;
   unsigned int best_size = 0;
-  KStack<Partition::Cell*> neighbour_cells_visited;
-  neighbour_cells_visited.init(get_nof_vertices());
+  _neighbour_cells.clear();
   for(Partition::Cell* cell = p.first_nonsingleton_cell;
       cell;
       cell = cell->next_nonsingleton)
@@ -1657,11 +1623,12 @@ Digraph::sh_first_largest_max_neighbours()
 	    continue;
 	  neighbour_cell->max_ival++;
 	  if(neighbour_cell->max_ival == 1)
-	    neighbour_cells_visited.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	}
-      while(!neighbour_cells_visited.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell* const neighbour_cell = neighbour_cells_visited.pop();
+	  Partition::Cell* const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  if(neighbour_cell->max_ival != neighbour_cell->length)
 	    value++;
 	  neighbour_cell->max_ival = 0;
@@ -1675,11 +1642,12 @@ Digraph::sh_first_largest_max_neighbours()
 	    continue;
 	  neighbour_cell->max_ival++;
 	  if(neighbour_cell->max_ival == 1)
-	    neighbour_cells_visited.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	}
-      while(!neighbour_cells_visited.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell* const neighbour_cell = neighbour_cells_visited.pop();
+	  Partition::Cell* const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  if(neighbour_cell->max_ival != neighbour_cell->length)
 	    value++;
 	  neighbour_cell->max_ival = 0;
@@ -1730,7 +1698,7 @@ Digraph::is_automorphism(unsigned int* const perm) const
 
 #if defined(BLISS_CONSISTENCY_CHECKS)
   if(!is_permutation(get_nof_vertices(), perm))
-    _INTERNAL_ERROR();
+    throw std::logic_error(__FILE__ ":" __LINE__ ": a permutation was expected");
 #endif
 
   for(unsigned int i = 0; i < get_nof_vertices(); i++)
@@ -1974,8 +1942,7 @@ Digraph::nucr_find_first_component(const unsigned int level,
     }
 	
   std::vector<Partition::Cell*> comp;
-  KStack<Partition::Cell*> neighbours;
-  neighbours.init(get_nof_vertices());
+  _neighbour_cells.clear();
 
   first_cell->max_ival = 1;
   comp.push_back(first_cell);
@@ -2004,12 +1971,13 @@ Digraph::nucr_find_first_component(const unsigned int level,
 	  //if(p.cr_get_level(neighbour_cell->first) != level)
 	  //  continue;
 	  if(neighbour_cell->max_ival_count == 0)
-	    neighbours.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	  neighbour_cell->max_ival_count++;
 	}
-      while(!neighbours.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell* const neighbour_cell = neighbours.pop();
+	  Partition::Cell* const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  /* Skip saturated neighbour cells */
 	  if(neighbour_cell->max_ival_count == neighbour_cell->length)
 	    {
@@ -2037,12 +2005,13 @@ Digraph::nucr_find_first_component(const unsigned int level,
 	  //if(p.cr_get_level(neighbour_cell->first) != level)
 	  //  continue;
 	  if(neighbour_cell->max_ival_count == 0)
-	    neighbours.push(neighbour_cell);
+	    _neighbour_cells.push_back(neighbour_cell);
 	  neighbour_cell->max_ival_count++;
 	}
-      while(!neighbours.is_empty())
+      while(not _neighbour_cells.empty())
 	{
-	  Partition::Cell* const neighbour_cell = neighbours.pop();
+	  Partition::Cell* const neighbour_cell = _neighbour_cells.back();
+	  _neighbour_cells.pop_back();
 	  /* Skip saturated neighbour cells */
 	  if(neighbour_cell->max_ival_count == neighbour_cell->length)
 	    {
@@ -2118,7 +2087,7 @@ Digraph::nucr_find_first_component(const unsigned int level,
 	}
 	break;
       default:
-	fatal_error("Internal error - unknown splitting heuristics");
+	throw std::logic_error("unknown splitting heuristics");
 	return 0;
       }
     }

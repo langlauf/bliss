@@ -88,6 +88,7 @@ protected:
    */
   static unsigned int vertex_color_invariant(const Graph* const g,
 					     const unsigned int v);
+
   /** \internal
    * Partition independent invariant.
    * Returns the degree of the vertex.
@@ -96,6 +97,7 @@ protected:
    */
   static unsigned int degree_invariant(const Graph* const g,
 				       const unsigned int v);
+
   /** \internal
    * Partition independent invariant.
    * Returns 1 if there is an edge from the vertex to itself, 0 if not.
@@ -111,7 +113,7 @@ protected:
   /*
    * Routines needed when refining the partition p into equitable
    */
-  bool split_neighbourhood_of_unit_cell(Partition::Cell *);
+  bool split_neighbourhood_of_unit_cell(Partition::Cell * const);
   bool split_neighbourhood_of_cell(Partition::Cell * const);
 
   /** \internal
@@ -130,11 +132,16 @@ protected:
   Partition::Cell* sh_first_largest_max_neighbours();
 
 
+  /* A data structure used in many functions.
+   * Allocated only once to reduce allocation overhead,
+   * may be used only in one function at a time.
+   */
+  std::vector<Partition::Cell*> _neighbour_cells;
+  
   void make_initial_equitable_partition();
 
   void initialize_certificate();
   
-  bool is_automorphism(unsigned int* const perm) const;
 
 
   bool nucr_find_first_component(const unsigned int level);
@@ -212,6 +219,11 @@ public:
   Graph* permute(const std::vector<unsigned int>& perm) const;
 
   /**
+   * \copydoc AbstractGraph::is_automorphism(unsigned int* const perm) const
+   */
+  bool is_automorphism(unsigned int* const perm) const;
+
+  /**
    * \copydoc AbstractGraph::is_automorphism(const std::vector<unsigned int>& perm) const
    */
   bool is_automorphism(const std::vector<unsigned int>& perm) const;
@@ -230,10 +242,20 @@ public:
   void add_edge(const unsigned int v1, const unsigned int v2);
 
   /**
+   * \copydoc AbstractGraph::get_color(const unsigned int vertex) const
+   */
+  unsigned int get_color(const unsigned int vertex) const;
+
+  /**
    * Change the color of the vertex \a vertex to \a color.
    */
   void change_color(const unsigned int vertex, const unsigned int color);
 
+  /**
+   * Get a copy of the graph.
+   */
+  Graph* copy() const;
+  
   /**
    * Compare this graph to the \a other graph in a total orger on graphs.
    * \return 0 if the graphs are equal,

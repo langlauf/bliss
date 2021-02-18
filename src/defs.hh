@@ -26,22 +26,15 @@
  * \brief Some common definitions.
  */
 
-#define BLISS_VERSION "0.76"
+#define BLISS_VERSION "0.77"
 #define BLISS_VERSION_MAJOR 0
-#define BLISS_VERSION_MINOR 76
+#define BLISS_VERSION_MINOR 77
 
 namespace bliss {
 
 /** \brief The version number of bliss. */
-static const char * const version = "0.76";
+static const char * const version = "0.77";
 
-/**
- * If a fatal internal error is encountered,
- * this function is called.
- * There should no return from this function, but an exit or
- * a jump/throw to code that deallocates the AbstractGraph instance calling this.
- */
-void fatal_error(const char* fmt, ...);
 
 
 #if defined(BLISS_DEBUG)

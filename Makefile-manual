@@ -6,11 +6,11 @@ CFLAGS = -I.
 CFLAGS += -g
 #CFLAGS += -pg
 CFLAGS += -Wall
-#CFLAGS += -Wextra
+CFLAGS += -Wextra
 CFLAGS += --pedantic
 CFLAGS += -O3
 #CFLAGS += -DBLISS_DEBUG
-CFLAGS += -DNDEGUB
+CFLAGS += -DNDEBUG
 CFLAGS += -fPIC
 CFLAGS += -std=c++11
 
@@ -18,7 +18,6 @@ BUILDDIR = build
 SRCDIR = src
 
 SRCS += defs.cc
-SRCS += heap.cc
 SRCS += abstractgraph.cc graph.cc digraph.cc
 SRCS += orbit.cc
 SRCS += partition.cc

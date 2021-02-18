@@ -142,11 +142,15 @@ protected:
   Partition::Cell* sh_first_smallest_max_neighbours();
   Partition::Cell* sh_first_largest_max_neighbours();
 
+  /* A data structure used in many functions.
+   * Allocated only once to reduce allocation overhead,
+   * may be used only in one function at a time.
+   */
+  std::vector<Partition::Cell*> _neighbour_cells;
+
   void make_initial_equitable_partition();
 
   void initialize_certificate();
-
-  bool is_automorphism(unsigned int* const perm) const;
 
   void sort_edges();
 
@@ -224,10 +228,20 @@ public:
   void add_edge(const unsigned int source, const unsigned int target);
 
   /**
+   * \copydoc AbstractGraph::get_color(const unsigned int vertex) const
+   */
+  unsigned int get_color(const unsigned int vertex) const;
+
+  /**
    * Change the color of the vertex 'vertex' to 'color'.
    */
   void change_color(const unsigned int vertex, const unsigned int color);
 
+  /**
+   * Get a copy of the graph.
+   */
+  Digraph* copy() const;
+  
   /**
    * Compare this graph to the \a other graph in a total orger on graphs.
    * \return 0 if the graphs are equal,
@@ -256,6 +270,11 @@ public:
    * \copydoc AbstractGraph::permute(const std::vector<unsigned int>& perm) const
    */
   Digraph* permute(const std::vector<unsigned int>& perm) const;
+
+  /**
+   * \copydoc AbstractGraph::is_automorphism(unsigned int* const perm) const
+   */
+  bool is_automorphism(unsigned int* const perm) const;
 
   /**
    * \copydoc AbstractGraph::is_automorphism(const std::vector<unsigned int>& perm) const

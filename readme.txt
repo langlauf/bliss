@@ -11,11 +11,9 @@ as well as the static and shared libraries, with
 
 make -f Makefile-manual
 
-By default, the automorphism group size computation uses
-limited precision floating point numbers.
-To enable precise size computation, one should have
-the GNU Multiple Precision Arithmetic Library installed
-and compile with 
+If you are embedding bliss in a project that needs the automorphism group sizes
+as GNU Multiple Precision Arithmetic Library integers,
+compile with 
 
 make -f Makefile-manual gmp
 
@@ -35,3 +33,11 @@ On Windows with Visual Studio and CMake, use
 
 cmake .
 cmake --build . --config Release
+
+
+Examples
+--------
+
+To see how bliss can be called from C++,
+see the bliss main routine at "src/bliss.cc" and
+the file in the "examples" directory.

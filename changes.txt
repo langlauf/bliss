@@ -1,3 +1,9 @@
+Version 0.77 (2021-02-18):
+- set_color and copy methods in the C++ API
+- examples/enumerate.cc
+- precise group size computation also without GNU GMP
+- no more exit-causing "fatal_errors", instead a std::logic_error, std::out_of_range or std::bad_alloc is thrown
+
 Version 0.76 (2021-02-01):
 - The sources are now in a separate directory.
 - The monolithic "graph" file is split in "abstractgraph", "graph" and "digraph".

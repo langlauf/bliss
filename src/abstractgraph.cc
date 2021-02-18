@@ -34,7 +34,6 @@
 
 namespace bliss {
 
-#define _INTERNAL_ERROR() fatal_error("%s:%d: internal error",__FILE__,__LINE__)
 
 /*-------------------------------------------------------------------------
  *
@@ -99,7 +98,36 @@ AbstractGraph::set_verbose_file(FILE* const fp)
 }
 
 
+/*-------------------------------------------------------------------------
+ *
+ * Helpers
+ *
+ *-------------------------------------------------------------------------*/
 
+void
+AbstractGraph::remove_duplicates(std::vector<unsigned int>& seq, std::vector<bool>& tmp) {
+#if defined(BLISS_CONSISTENCY_CHECKS)
+  /* Pre-conditions  */
+  for(unsigned int i = 0; i < tmp.size(); i++) assert(tmp[i] == false);
+#endif
+  const unsigned int m = seq.size();
+  unsigned int j = 0;
+  for(unsigned int i = 0; i < m; i++) {
+    if(tmp[seq[i]] == false) {
+      // Not yet seen
+      tmp[seq[i]] = true;
+      seq[j++] = seq[i];
+    }
+  }
+  seq.resize(j);
+  /* Clear tmp */
+  for(int e: seq) tmp[e] = false;
+#if defined(BLISS_CONSISTENCY_CHECKS)
+  /* Post-conditions  */
+  for(unsigned int i = 0; i < tmp.size(); i++) assert(tmp[i] == false);
+#endif
+}
+  
 /*-------------------------------------------------------------------------
  *
  * Routines for refinement to equitable partition
@@ -267,24 +295,6 @@ AbstractGraph::reset_permutation(unsigned int* perm)
   for(unsigned int i = 0; i < N; i++, perm++)
     *perm = i;
 }
-
-/*
-bool
-AbstractGraph::is_automorphism(unsigned int* const perm)
-{
-  _INTERNAL_ERROR();
-  return false;
-}
-*/
-
-/*
-bool
-AbstractGraph::is_automorphism(const std::vector<unsigned int>& perm) const
-{
-  _INTERNAL_ERROR();
-  return false;
-}
-*/
 
 
 
@@ -650,8 +660,9 @@ AbstractGraph::search(const bool canonical,
   /* ... and the component recursion data structures in the partition */
   if(opt_use_comprec)
     p.cr_init();
-  
-  neighbour_heap.init(N);
+
+  // REMOVE
+  // neighbour_heap.init(N);
 
   in_search = false;
   /* Do not compute certificate when building the initial partition */
@@ -665,6 +676,10 @@ AbstractGraph::search(const bool canonical,
 
   make_initial_equitable_partition();
 
+#if defined(BLISS_VERIFY_EQUITABLEDNESS)
+  if(!is_equitable())
+    throw std::logic_error("consistency check failed - initial partition not equitable");
+#endif
 
   if(verbstr and verbose_level >= 2)
     {
@@ -1189,11 +1204,6 @@ AbstractGraph::search(const bool canonical,
 	    }
 	}
 
-#if defined(BLISS_VERIFY_EQUITABLEDNESS)
-      /* The new partition should be equitable */
-      if(!is_equitable())
-	fatal_error("consistency check failed - partition after refinement is not equitable");
-#endif
 
       /*
        * Next level search tree node info
@@ -1549,12 +1559,12 @@ AbstractGraph::search(const bool canonical,
 
       
     handle_best_path_automorphism:
-      /*
-       *
-       * Best path automorphism handling
-       *
-       */
       {
+	/*
+	 *
+	 * Best path automorphism handling
+	 *
+	 */
 
 	/*
 	 * Equal to the previous best path
@@ -1581,11 +1591,11 @@ AbstractGraph::search(const bool canonical,
 		  best_path_automorphism[p.elements[i]] = p.elements[i];
 	    }
 	  }
-	
+
 #if defined(BLISS_VERIFY_AUTOMORPHISMS)
 	/* Verify that it really is an automorphism */
 	if(!is_automorphism(best_path_automorphism))
-	  fatal_error("Best path automorhism validation check failed");
+	  throw std::logic_error("Best path automorhism validation check failed");
 #endif
 	
 	unsigned int gca_level_with_first = 0;
@@ -1648,10 +1658,6 @@ AbstractGraph::search(const bool canonical,
 	continue;
       }
 
-
-      _INTERNAL_ERROR();
-
-      
     handle_first_path_automorphism:
       /*
        *
@@ -1686,7 +1692,7 @@ AbstractGraph::search(const bool canonical,
 #if defined(BLISS_VERIFY_AUTOMORPHISMS)
       /* Verify that it really is an automorphism */
       if(!is_automorphism(first_path_automorphism))
-	fatal_error("First path automorphism validation check failed");
+	throw std::logic_error("First path automorhism validation check failed");
 #endif
       
       if(opt_use_long_prune)
